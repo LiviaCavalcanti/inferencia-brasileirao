@@ -10,6 +10,7 @@ library(tidyverse)
 theme_set(theme_bw())
 
 library(broom)
+library(boot)
 
 knitr::opts_chunk$set(tidy = FALSE,
                       fig.width = 6,
@@ -24,6 +25,8 @@ dados_gols <- read_csv2(("campeonato-brasileiro-full.csv"))
 head(dados_gols)
 ```
 
+
+# 1. Jogos aos domingos têm mais gols que jogos às quartas? 
 ```{r}
 qua_dom_jogos <- dados_gols %>% 
                     filter(Dia == "Domingo" | Dia == "Quarta-feira")
@@ -56,19 +59,6 @@ theta_diferenca_gols <- function(df, i) {
 ```
 
 
-theta_embaralhado = function(d){
-    sonos = d %>% 
-        mutate(turma_embaralhada = sample(turma, n())) %>% 
-        group_by(turma_embaralhada) %>% 
-        summarise(sono = mean(sono_fds)) 
-    
-    cdd = sonos %>% filter(turma_embaralhada == "cdd") %>% pull(sono)
-    fpcc = sonos %>% filter(turma_embaralhada == "fpcc") %>% pull(sono)
-    
-    cdd - fpcc
-}
-
-theta_embaralhado(dados)
 
 ```{r}
 theta_hipotese_gols <- function(df) {
@@ -78,7 +68,7 @@ theta_hipotese_gols <- function(df) {
                 summarise(gols_media = mean(gols))
   
   dom = gols_df %>% filter(embaralhados_jogos == "Domingo") %>% pull(gols_media)
-  qua = gols_df %>% filter(embaralhados_jogos != "Domingo") %>% pull(gols_media)
+  qua = gols_df %>% filter(embaralhados_jogos == "Quarta-feira") %>% pull(gols_media)
   
   dom - qua
 }
@@ -91,8 +81,6 @@ theta_hipotese_gols <- function(df) {
 diffs_gols = replicate(5000, {theta_hipotese_gols(qua_dom_jogos)})
 
 
-
-
 tibble(diferenca = diffs_gols) %>% 
   ggplot(aes(x = diferenca)) + 
     geom_density(fill = "white", color = "darkgreen") +
@@ -100,5 +88,76 @@ tibble(diferenca = diffs_gols) %>%
              color = "orange") +
     geom_vline(xintercept = - theta_diferenca_gols(qua_dom_jogos, 1:NROW(qua_dom_jogos)),
              color = "orange")
+
+mean(abs(diffs_gols) >= abs(theta_diferenca_gols(qua_dom_jogos, 1:NROW(qua_dom_jogos))))
+
+```
+Não há evidências para refutarmos a hipótese nula, ou seja, não podemos afirmar que jogos no domingo têm mais gols que os jogos de quarta.
+Pelo gráfico, é possível ver que o modelo nulo apresenta muitos casos que se enquadram nos dados passados como entrada.
+```{r}
+qua_dom_jogos %>% 
+    boot(statistic = theta_diferenca_gols, R = 4000) %>% 
+    tidy(conf.level = 0.95, 
+         conf.int = TRUE)
+```
+O intervalo gerado obtido inclui o zero, logo não é possível afirmar que há diferença entre os dois grupos considerados.
+# 2. Jogos onde há um vitorioso têm mais ou menos gols que empates? 
+
+```{r}
+resultados_df <- dados_gols %>% mutate(resultado = ifelse(`Vencedor Estado` != "Empate", "Vitória", "Empate")) %>% select(resultado, gols)
 ```
 
+```{r}
+theta_diferenca_empates <- function(df, i) {
+  gols_df = df %>%
+          slice(i) %>%
+            group_by(resultado) %>%
+              summarise(gols_media = mean(gols))
+  
+  empate = gols_df %>% filter(resultado == "Empate") %>% pull(gols_media)
+  vitoria = gols_df %>% filter(resultado == "Vitória") %>% pull(gols_media)
+  
+  empate - vitoria
+}
+```
+
+
+
+```{r}
+theta_hipotese_empates <- function(df) {
+  gols_df = df %>%
+            mutate(embaralhados_jogos = sample(resultado, n())) %>%
+              group_by(embaralhados_jogos) %>%
+                summarise(gols_media = mean(gols))
+  
+  empate = gols_df %>% filter(embaralhados_jogos == "Empate") %>% pull(gols_media)
+  vitoria = gols_df %>% filter(embaralhados_jogos == "Vitória") %>% pull(gols_media)
+  
+  empate - vitoria
+}
+
+diffs_empates
+```
+
+
+```{r}
+diffs_empates = replicate(5000, {theta_hipotese_empates(resultados_df)})
+
+
+tibble(diferenca = diffs_empates) %>% 
+  ggplot(aes(x = diferenca)) + 
+    geom_density(fill = "white", color = "darkgreen") +
+  geom_vline(xintercept = theta_diferenca_empates(resultados_df, 1:NROW(resultados_df)),
+             color = "orange") +
+    geom_vline(xintercept = - theta_diferenca_empates(resultados_df, 1:NROW(resultados_df)),
+             color = "orange")
+```
+H
+```{r}
+resultados_df %>% 
+    boot(statistic = theta_diferenca_empates, R = 4000) %>% 
+    tidy(conf.level = 0.95, 
+         conf.int = TRUE)
+```
+
+Com confinça de 95%, há indícios de que há diferença entre a quantidade de gols entre jogos com empate e com vitória, tendo os jogos terminados com empate menos gols que os outros.
