@@ -1,0 +1,104 @@
+---
+title: "Análise do Brasileirão"
+author: "Lívia Cavalcanti"
+date: "4 de junho de 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+theme_set(theme_bw())
+
+library(broom)
+
+knitr::opts_chunk$set(tidy = FALSE,
+                      fig.width = 6,
+                      fig.height = 5)
+```
+
+```{r}
+dados_gols <- read_csv2(("campeonato-brasileiro-full.csv"))
+```
+
+```{r}
+head(dados_gols)
+```
+
+```{r}
+qua_dom_jogos <- dados_gols %>% 
+                    filter(Dia == "Domingo" | Dia == "Quarta-feira")
+```
+
+theta_diferenca = function(d, i){
+    sonos = d %>% 
+        slice(i) %>% 
+        group_by(turma) %>% 
+        summarise(sono = mean(sono_semana)) 
+    
+    cdd = sonos %>% filter(turma == "cdd") %>% pull(sono)
+    fpcc = sonos %>% filter(turma == "fpcc") %>% pull(sono)
+    
+    cdd - fpcc
+}
+
+```{r}
+theta_diferenca_gols <- function(df, i) {
+  gols_df = df %>%
+          slice(i) %>%
+            group_by(Dia) %>%
+              summarise(gols_media = mean(gols))
+  
+  dom = gols_df %>% filter(Dia == "Domingo") %>% pull(gols_media)
+  qua = gols_df %>% filter(Dia != "Domingo") %>% pull(gols_media)
+  
+  dom - qua
+}
+```
+
+
+theta_embaralhado = function(d){
+    sonos = d %>% 
+        mutate(turma_embaralhada = sample(turma, n())) %>% 
+        group_by(turma_embaralhada) %>% 
+        summarise(sono = mean(sono_fds)) 
+    
+    cdd = sonos %>% filter(turma_embaralhada == "cdd") %>% pull(sono)
+    fpcc = sonos %>% filter(turma_embaralhada == "fpcc") %>% pull(sono)
+    
+    cdd - fpcc
+}
+
+theta_embaralhado(dados)
+
+```{r}
+theta_hipotese_gols <- function(df) {
+  gols_df = df %>%
+            mutate(embaralhados_jogos = sample(Dia, n())) %>%
+              group_by(embaralhados_jogos) %>%
+                summarise(gols_media = mean(gols))
+  
+  dom = gols_df %>% filter(embaralhados_jogos == "Domingo") %>% pull(gols_media)
+  qua = gols_df %>% filter(embaralhados_jogos != "Domingo") %>% pull(gols_media)
+  
+  dom - qua
+}
+
+
+```
+
+
+```{r}
+diffs_gols = replicate(5000, {theta_hipotese_gols(qua_dom_jogos)})
+
+
+
+
+tibble(diferenca = diffs_gols) %>% 
+  ggplot(aes(x = diferenca)) + 
+    geom_density(fill = "white", color = "darkgreen") +
+  geom_vline(xintercept = theta_diferenca_gols(qua_dom_jogos, 1:NROW(qua_dom_jogos)),
+             color = "orange") +
+    geom_vline(xintercept = - theta_diferenca_gols(qua_dom_jogos, 1:NROW(qua_dom_jogos)),
+             color = "orange")
+```
+
