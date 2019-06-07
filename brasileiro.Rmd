@@ -1,6 +1,6 @@
 ---
 title: "Análise do Brasileirão"
-author: "Lívia Cavalcanti"
+author: "Lívia Cavalcanti, Marcus Vinícius"
 date: "4 de junho de 2019"
 output: html_document
 ---
@@ -163,3 +163,10 @@ resultados_df %>%
 ```
 
 Com confinça de 95%, há indícios de que há diferença entre a quantidade de gols entre jogos com empate e com vitória, tendo os jogos terminados com empate menos gols que os outros.
+
+
+## c) Comparação de respostas
+
+Em ambas as perguntas, as conclusões que foram obtidas tanto com intervalos de confiança quanto teste de hipotése via permutação convergem, porém, somente a partir dos intervalos de confiança nós podemos ter uma estimativa concreta de onde está o verdadeiro theta da população, métrica que não é possível ser estimada usando testes de hipotése via permutação, que apenas é passível de supor as conclusões com base na significância da diferença.
+
+Essa ausência de métricas da população no teste de hipótese se dá justamente por ser um método que refuta ou confirma a hipótese nula.
